@@ -188,7 +188,7 @@ func TestRead(t *testing.T) {
 						}
 
 						resources := queryNResources(2, 0)
-						if req.URL.Query().Get("Cursor") != "" {
+						if req.URL.Query().Get("page") != "" {
 							moreResources := queryNResources(2, 2)
 							resources = append(resources, moreResources...)
 							out, _ := json.Marshal(resources)
@@ -197,7 +197,7 @@ func TestRead(t *testing.T) {
 						}
 						out, _ := json.Marshal(resources)
 						r := ioutil.NopCloser(bytes.NewReader([]byte(out)))
-						return &http.Response{StatusCode: 200, Body: r, Header: http.Header{"After-Cursor": []string{"asdf"}}}, nil
+						return &http.Response{StatusCode: 200, Body: r, Header: http.Header{"Total-Pages": []string{"2"}}}, nil
 					},
 				},
 			})

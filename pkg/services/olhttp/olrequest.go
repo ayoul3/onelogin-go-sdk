@@ -5,13 +5,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/onelogin/onelogin-go-sdk/internal/customerrors"
-	"github.com/onelogin/onelogin-go-sdk/pkg/services"
-	"github.com/onelogin/onelogin-go-sdk/pkg/utils"
 	"io/ioutil"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
+
+	"github.com/onelogin/onelogin-go-sdk/internal/customerrors"
+	"github.com/onelogin/onelogin-go-sdk/pkg/services"
+	"github.com/onelogin/onelogin-go-sdk/pkg/utils"
 )
 
 const resourceRequestuestContext = "ol http service"
@@ -57,28 +59,29 @@ func (svc OLHTTPService) Read(r interface{}) ([]byte, error) {
 
 	var (
 		allData []byte
-		next    string
 	)
 	resp, data, err := svc.executeHTTP(req, resourceRequest)
 	if err != nil {
 		return []byte{}, err
 	}
-	for {
-		allData = append(allData, data...)
-		next = resp.Header.Get("After-Cursor")
-		if next == "" {
-			break
-		}
-		params := req.URL.Query()
-		params.Add("Cursor", next)
-		req.URL.RawQuery = params.Encode()
-		resp, data, err = svc.executeHTTP(req, resourceRequest)
+	allData = append(allData, data...)
+
+	totalStr := resp.Header.Get("Total-Pages")
+	total, err := strconv.Atoi(totalStr)
+	if err != nil {
+		total = 1
 	}
 
-	if err != nil {
-		return []byte{}, err
+	for i := 2; i <= total; i++ {
+		params := req.URL.Query()
+		params.Add("page", fmt.Sprintf("%d", i))
+		req.URL.RawQuery = params.Encode()
+		if resp, data, err = svc.executeHTTP(req, resourceRequest); err != nil {
+			return []byte{}, err
+		}
+		allData = append(allData, data...)
 	}
-	return data, err
+	return data, nil
 }
 
 // Create creates a new resource in the remote location over HTTP
@@ -159,7 +162,7 @@ func attachQueryParameters(req *http.Request, payload interface{}) error {
 		return err
 	}
 	for k, v := range m {
-		if v != "" {
+		if v != "" && v != "0001-01-01T00:00:00Z" {
 			params.Add(utils.ToSnakeCase(k), v)
 		}
 	}
